@@ -141,6 +141,22 @@ class MainActivity : AppCompatActivity() {
             view?.loadUrl(url)
             return true
         }
+
+        override fun onPageFinished(view: WebView?, url: String?) {
+            super.onPageFinished(view, url)
+
+            view?.evaluateJavascript("""
+            function requestLocationFromAndroidApp() {
+                if (window.NativeBridge) {
+                    NativeBridge.callLocationPos("handleLocationFromApp");
+                }
+            }
+
+            function handleLocationFromApp(latitude, longitude) {
+                console.log("From Android App: ", latitude, longitude);
+            }
+            """, null)
+        }
     }
 
     /**네이티브 브릿지, 네이티브 기능 사용*/
