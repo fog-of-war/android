@@ -8,13 +8,16 @@ import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location
 import android.location.LocationManager
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -28,6 +31,10 @@ class MainActivity : AppCompatActivity() {
     private val mHandler = Handler(Looper.getMainLooper())
     private lateinit var mWebView: WebView
     private var isCmdProcessing = false
+    companion object {
+        private const val GALLERY_REQUEST_CODE = 1002
+    }
+    private var mFilePathCallback: ValueCallback<Array<Uri>>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,8 +47,17 @@ class MainActivity : AppCompatActivity() {
     private fun setupWebView() {
         mWebView = findViewById(R.id.webView)
         configureWebViewSettings()
+        // 기존 WebViewClient 설정
         mWebView.webViewClient = WebViewClientClass()
-        mWebView.webChromeClient = WebChromeClient()
+        // WebChromeClient 설정 부분
+        mWebView.webChromeClient = object : WebChromeClient() {
+            // For Lollipop 5.0+ Devices
+            override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
+                // 파일 선택 인텐트를 시작합니다
+                fetchImageFromGallery(filePathCallback)
+                return true
+            }
+        }
         mWebView.addJavascriptInterface(NativeBridge(this, mHandler, mWebView), "NativeBridge")
         mWebView.loadUrl("https://www.yubinhome.com")
     }
@@ -67,6 +83,28 @@ class MainActivity : AppCompatActivity() {
         else super.onBackPressed()
     }
 
+    /**갤러리에서 이미지 불러오기*/
+    fun fetchImageFromGallery(filePathCallback: ValueCallback<Array<Uri>>?) { // 그리고 이 함수도 추가
+        mFilePathCallback = filePathCallback
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        startActivityForResult(intent, GALLERY_REQUEST_CODE)
+    }
+
+    /**갤러리에서 이미지 불러오기*/
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == GALLERY_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK && data != null && data.data != null) {
+                val results = arrayOf<Uri>(data.data!!)
+                mFilePathCallback?.onReceiveValue(results)
+            } else {
+                mFilePathCallback?.onReceiveValue(null)
+            }
+            mFilePathCallback = null
+        }
+    }
+
     /**권한 요청*/
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         when {
@@ -83,6 +121,8 @@ class MainActivity : AppCompatActivity() {
             if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) add(Manifest.permission.ACCESS_COARSE_LOCATION)
             if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) add(Manifest.permission.ACCESS_FINE_LOCATION)
             if (!hasPermission(Manifest.permission.CAMERA)) add(Manifest.permission.CAMERA)
+            if (!hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) { add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
         }
         if (permissionsToRequest.isNotEmpty()) permissionRequest.launch(permissionsToRequest.toTypedArray())
     }
@@ -169,5 +209,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("Error", e.toString())
             }
         }
+
     }
 }
