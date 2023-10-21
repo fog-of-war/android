@@ -27,38 +27,29 @@ class MainActivity : AppCompatActivity() {
 
     private val mHandler = Handler(Looper.getMainLooper())
     private lateinit var mWebView: WebView
-    private var bCmdProcess = false
-    private val mContext: Context? = null
-
-    private val locationPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-        when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                // Precise location access granted.
-            }
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                // Only approximate location access granted.
-            }
-            else -> {
-                // No location access granted.
-            }
-        }
-    }
+    private var isCmdProcessing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        checkAndRequestLocationPermissions()
-
+        checkAndRequestPermissions()
         setupWebView()
     }
 
-    /**웹뷰 실행메서드*/
+    /**웹뷰 실행 메서드*/
     private fun setupWebView() {
         mWebView = findViewById(R.id.webView)
+        configureWebViewSettings()
+        mWebView.webViewClient = WebViewClientClass()
+        mWebView.webChromeClient = WebChromeClient()
+        mWebView.addJavascriptInterface(NativeBridge(this, mHandler, mWebView), "NativeBridge")
+        mWebView.loadUrl("https://www.yubinhome.com")
+    }
 
+    /**웹뷰 설정 메서드*/
+    private fun configureWebViewSettings() {
         mWebView.settings.apply {
-            javaScriptEnabled = true   // 웹뷰 자바스크립트 허용
+            javaScriptEnabled = true
             javaScriptCanOpenWindowsAutomatically = true
             setSupportMultipleWindows(true)
             loadWithOverviewMode = true
@@ -66,109 +57,116 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(false)
             builtInZoomControls = false
             domStorageEnabled = true
-            userAgentString = "Chrome/56.0.0.0 Mobile" // User Agent 설정
+            userAgentString = "Chrome/56.0.0.0 Mobile"
         }
-
-        mWebView.webViewClient = WebViewClientClass()
-        mWebView.webChromeClient = WebChromeClient()
-
-        mWebView.addJavascriptInterface(NativeBridge(this, mHandler, mWebView), "NativeBridge")
-        mWebView.loadUrl("https://www.yubinhome.com")
     }
 
-    /**뒤로가기*/
+    /**뒤로 가기 버튼*/
     override fun onBackPressed() {
-        if (mWebView.canGoBack()) {
-            mWebView.goBack()
-        } else {
-            super.onBackPressed()
+        if (mWebView.canGoBack()) mWebView.goBack()
+        else super.onBackPressed()
+    }
+
+    /**권한 요청*/
+    private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        when {
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {}
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {}
+            permissions.getOrDefault(Manifest.permission.CAMERA, false) -> {}
+            else -> {}
         }
     }
 
-    /**위치 인증 요청 함수*/
-    private fun checkAndRequestLocationPermissions() {
-        if (!hasLocationPermissions()) {
-            locationPermissionRequest.launch(
-                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
-            )
+    /**권한 요청 메서드*/
+    private fun checkAndRequestPermissions() {
+        val permissionsToRequest = mutableListOf<String>().apply {
+            if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (!hasPermission(Manifest.permission.CAMERA)) add(Manifest.permission.CAMERA)
         }
+        if (permissionsToRequest.isNotEmpty()) permissionRequest.launch(permissionsToRequest.toTypedArray())
     }
 
-    private fun hasLocationPermissions(): Boolean {
-        return (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) &&
-                (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+    /**권한 여부 확인*/
+    private fun hasPermission(permission: String): Boolean {
+        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
 
-    /**SSL 인증서 무시*/
+    /**웹뷰 클라이언트*/
     private inner class WebViewClientClass : WebViewClient() {
         override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
             handler?.proceed()
         }
-
         override fun shouldOverrideUrlLoading(view: WebView?, url: String): Boolean {
             view?.loadUrl(url)
             return true
         }
     }
 
-    /**네이티브 브릿지*/
+    /**네이티브 브릿지, 네이티브 기능 사용*/
     inner class NativeBridge(private val mActivity: Activity, private val mHandler: Handler, private val mWebView: WebView) {
-        /** 위치 정보 */
+
         @JavascriptInterface
         fun callLocationPos(strCallbackFunc: String) {
-            if (!hasLocationPermissions()) {
-                checkAndRequestLocationPermissions()
+            if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) || !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                checkAndRequestPermissions()
                 return
             }
-
-            Log.i("CALL NativeBridge callLocationPos", "START")
-            if (bCmdProcess) return
-
-            bCmdProcess = true
+            if (isCmdProcessing) return
+            isCmdProcessing = true
             mHandler.post {
-                try {
-                    val locMgr = mActivity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                    val criteria = Criteria().apply {
-                        accuracy = Criteria.ACCURACY_COARSE
-                    }
-                    val bestProv = locMgr.getBestProvider(criteria, true) ?: return@post
-
-                    if (ActivityCompat.checkSelfPermission(mActivity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mActivity, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        // Handle lack of location permissions here, if needed
-                        return@post
-                    }
-
-                    val loc: Location? = locMgr.getLastKnownLocation(bestProv)
-
-                    loc?.let {
-                        val strJavascript = "$strCallbackFunc('${it.latitude}','${it.longitude}')"
-                        mWebView.loadUrl("javascript:$strJavascript")
-                    }
-                } catch (exLoc: Exception) {
-                    val strJavascript = "alert('위치확인오류')"
-                    mWebView.loadUrl("javascript:$strJavascript")
-                }
-                bCmdProcess = false
+                fetchLocation(strCallbackFunc)
+                isCmdProcessing = false
             }
         }
-        /** 카메라 */
+
+        private fun fetchLocation(callbackFunc: String) {
+            try {
+                val locMgr = mActivity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val criteria = Criteria().apply { accuracy = Criteria.ACCURACY_COARSE }
+                val bestProvider = locMgr.getBestProvider(criteria, true) ?: return
+
+                if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) || !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                    throw SecurityException("Location permissions not granted.")
+                }
+
+                val loc: Location? = locMgr.getLastKnownLocation(bestProvider)
+                loc?.let {
+                    val script = "$callbackFunc('${it.latitude}','${it.longitude}')"
+                    mWebView.loadUrl("javascript:$script")
+                }
+            } catch (e: SecurityException) {
+                mWebView.loadUrl("javascript:alert('Permission for location was not granted.')")
+            } catch (e: Exception) {
+                mWebView.loadUrl("javascript:alert('위치확인오류')")
+            }
+        }
+
         @JavascriptInterface
         fun callCamera() {
-            if (mContext?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.CAMERA) } != PackageManager.PERMISSION_GRANTED) {
+            if (!hasPermission(Manifest.permission.CAMERA)) {
                 ActivityCompat.requestPermissions(mActivity, arrayOf(Manifest.permission.CAMERA), 1)
+                return
             }
+            if (isCmdProcessing) return
+            isCmdProcessing = true
+            mHandler.post {
+                launchCameraActivity()
+                isCmdProcessing = false
+            }
+        }
 
+        private fun launchCameraActivity() {
             try {
-                if (bCmdProcess) return
-                bCmdProcess = true
-                mHandler.post {
-                    val intent = Intent(mContext, UtilCamera::class.java)
-                    startActivity(intent)
+                if (!hasPermission(Manifest.permission.CAMERA)) {
+                    throw SecurityException("Camera permission not granted.")
                 }
-            } catch (ex: Exception) {
-                Log.e("Error", ex.toString())
-            } finally {
-                bCmdProcess = false
+                val intent = Intent(mActivity, UtilCamera::class.java)
+                startActivity(intent)
+            } catch (e: SecurityException) {
+                mWebView.loadUrl("javascript:alert('Permission for camera was not granted.')")
+            } catch (e: Exception) {
+                Log.e("Error", e.toString())
             }
         }
     }
