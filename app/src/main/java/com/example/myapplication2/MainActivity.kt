@@ -1,7 +1,9 @@
 package com.example.myapplication2
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location
@@ -20,13 +22,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import android.Manifest
 
 class MainActivity : AppCompatActivity() {
 
     private val mHandler = Handler(Looper.getMainLooper())
     private lateinit var mWebView: WebView
     private var bCmdProcess = false
+    private val mContext: Context? = null
 
     private val locationPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         when {
@@ -111,7 +113,7 @@ class MainActivity : AppCompatActivity() {
 
     /**네이티브 브릿지*/
     inner class NativeBridge(private val mActivity: Activity, private val mHandler: Handler, private val mWebView: WebView) {
-
+        /** 위치 정보 */
         @JavascriptInterface
         fun callLocationPos(strCallbackFunc: String) {
             if (!hasLocationPermissions()) {
@@ -146,6 +148,26 @@ class MainActivity : AppCompatActivity() {
                     val strJavascript = "alert('위치확인오류')"
                     mWebView.loadUrl("javascript:$strJavascript")
                 }
+                bCmdProcess = false
+            }
+        }
+        /** 카메라 */
+        @JavascriptInterface
+        fun callCamera() {
+            if (mContext?.let { ContextCompat.checkSelfPermission(it, Manifest.permission.CAMERA) } != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(mActivity, arrayOf(Manifest.permission.CAMERA), 1)
+            }
+
+            try {
+                if (bCmdProcess) return
+                bCmdProcess = true
+                mHandler.post {
+                    val intent = Intent(mContext, UtilCamera::class.java)
+                    startActivity(intent)
+                }
+            } catch (ex: Exception) {
+                Log.e("Error", ex.toString())
+            } finally {
                 bCmdProcess = false
             }
         }
