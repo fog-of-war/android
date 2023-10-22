@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
@@ -56,6 +57,15 @@ class MainActivity : AppCompatActivity() {
                 // 파일 선택 인텐트를 시작합니다
                 fetchImageFromGallery(filePathCallback)
                 return true
+            }
+
+            // 추가: onGeolocationPermissionsShowPrompt 오버라이딩
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                super.onGeolocationPermissionsShowPrompt(origin, callback)
+                callback?.invoke(origin, true, false)
             }
         }
         mWebView.addJavascriptInterface(NativeBridge(this, mHandler, mWebView), "NativeBridge")
