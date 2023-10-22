@@ -45,12 +45,15 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setupWebView()
-        checkAndRequestPermissions()
-       // checkLocationServices()
+        // checkLocationServicesAndRequestPermissions()
+    }
+    override fun onResume() {
+        super.onResume()
+        checkLocationServicesAndRequestPermissions()// 앱 실행 시 위치 서비스 확인
     }
 
     /**앱을 켤때 마다 위치 기능 활성화 요청*/
-    private fun checkLocationServices() {
+    private fun checkLocationServicesAndRequestPermissions() {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
         val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
@@ -78,6 +81,9 @@ class MainActivity : AppCompatActivity() {
 
             val alertDialog = alertDialogBuilder.create()
             alertDialog.show()
+        } else {
+            // 위치 서비스가 활성화되어 있으면 권한 확인 및 요청
+            checkAndRequestPermissions()
         }
     }
 
@@ -156,8 +162,8 @@ class MainActivity : AppCompatActivity() {
     /**권한 요청*/
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> { checkLocationServices()}
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> { checkLocationServices()}
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {}
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {}
             permissions.getOrDefault(Manifest.permission.CAMERA, false) -> {}
             else -> {}
         }
@@ -172,7 +178,13 @@ class MainActivity : AppCompatActivity() {
             if (!hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) { add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
-        if (permissionsToRequest.isNotEmpty()) permissionRequest.launch(permissionsToRequest.toTypedArray())
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionRequest.launch(permissionsToRequest.toTypedArray())
+        }
+        // else {
+        // 모든 권한이 이미 부여된 경우에도 checkLocationServices() 호출
+        //   checkLocationServices()
+        //}
     }
 
     /**권한 여부 확인*/
