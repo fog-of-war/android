@@ -1,4 +1,4 @@
-package com.example.myapplication2
+package com.fow.fogofwar
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

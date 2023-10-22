@@ -1,4 +1,4 @@
-package com.example.myapplication2
+package com.fow.fogofwar
 
 import android.app.Activity
 import android.content.Intent

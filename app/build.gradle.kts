@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication2"
+    namespace = "com.fow.fogofwar"
     compileSdk = 33
 
     defaultConfig {
-        applicationId = "com.example.myapplication2"
+        applicationId = "com.fow.fogofwar"
         minSdk = 33
         targetSdk = 33
         versionCode = 1
