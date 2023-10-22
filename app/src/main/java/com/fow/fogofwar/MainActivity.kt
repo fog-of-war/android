@@ -2,6 +2,7 @@ package com.fow.fogofwar
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
@@ -43,9 +44,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        checkAndRequestPermissions()
         setupWebView()
-        checkLocationServices()
+        checkAndRequestPermissions()
+       // checkLocationServices()
     }
 
     /**앱을 켤때 마다 위치 기능 활성화 요청*/
@@ -55,15 +56,31 @@ class MainActivity : AppCompatActivity() {
         val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
         if (!isGpsEnabled && !isNetworkEnabled) {
-            // 위치 서비스가 꺼져 있으면 사용자에게 위치 서비스를 활성화하도록 요청
-            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-            try {
-                startActivityForResult(intent, LOCATION_SETTINGS_REQUEST_CODE)
-            } catch (e: IntentSender.SendIntentException) {
-                e.printStackTrace()
+            // 위치 서비스가 비활성화되었을 때만 다이얼로그 표시
+            val alertDialogBuilder = AlertDialog.Builder(this)
+            alertDialogBuilder.apply {
+                setTitle("위치 서비스 활성화 필요")
+                setMessage("계속 진행하려면 기기에서 위치 서비스를 활성화해주세요.")
+                setPositiveButton("확인") { _, _ ->
+                    // Open the location settings screen
+                    val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    try {
+                        startActivityForResult(intent, LOCATION_SETTINGS_REQUEST_CODE)
+                    } catch (e: IntentSender.SendIntentException) {
+                        e.printStackTrace()
+                    }
+                }
+                setNegativeButton("아니오") { _, _ ->
+                    // Handle cancellation if needed
+                }
+                setCancelable(false)
             }
+
+            val alertDialog = alertDialogBuilder.create()
+            alertDialog.show()
         }
     }
+
     /**웹뷰 실행 메서드*/
     private fun setupWebView() {
         mWebView = findViewById(R.id.webView)
@@ -139,8 +156,8 @@ class MainActivity : AppCompatActivity() {
     /**권한 요청*/
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {}
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {}
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> { checkLocationServices()}
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> { checkLocationServices()}
             permissions.getOrDefault(Manifest.permission.CAMERA, false) -> {}
             else -> {}
         }
