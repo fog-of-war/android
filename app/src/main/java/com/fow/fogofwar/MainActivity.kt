@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location
@@ -26,6 +27,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.provider.Settings
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private var isCmdProcessing = false
     companion object {
         private const val GALLERY_REQUEST_CODE = 1002
+        private const val LOCATION_SETTINGS_REQUEST_CODE = 1003
     }
     private var mFilePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -42,8 +45,25 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         checkAndRequestPermissions()
         setupWebView()
+        checkLocationServices()
     }
 
+    /**앱을 켤때 마다 위치 기능 활성화 요청*/
+    private fun checkLocationServices() {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+        if (!isGpsEnabled && !isNetworkEnabled) {
+            // 위치 서비스가 꺼져 있으면 사용자에게 위치 서비스를 활성화하도록 요청
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            try {
+                startActivityForResult(intent, LOCATION_SETTINGS_REQUEST_CODE)
+            } catch (e: IntentSender.SendIntentException) {
+                e.printStackTrace()
+            }
+        }
+    }
     /**웹뷰 실행 메서드*/
     private fun setupWebView() {
         mWebView = findViewById(R.id.webView)
@@ -59,7 +79,8 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            // 추가: onGeolocationPermissionsShowPrompt 오버라이딩
+            // 추가: onGeolocationPermissionsShowPrompt
+            // 오버라이딩
             override fun onGeolocationPermissionsShowPrompt(
                 origin: String?,
                 callback: GeolocationPermissions.Callback?
@@ -106,7 +127,7 @@ class MainActivity : AppCompatActivity() {
 
         if (requestCode == GALLERY_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null && data.data != null) {
-                val results = arrayOf<Uri>(data.data!!)
+                val results = arrayOf(data.data!!)
                 mFilePathCallback?.onReceiveValue(results)
             } else {
                 mFilePathCallback?.onReceiveValue(null)
@@ -147,6 +168,7 @@ class MainActivity : AppCompatActivity() {
         override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
             handler?.proceed()
         }
+        @Deprecated("Deprecated in Java")
         override fun shouldOverrideUrlLoading(view: WebView?, url: String): Boolean {
             view?.loadUrl(url)
             return true
