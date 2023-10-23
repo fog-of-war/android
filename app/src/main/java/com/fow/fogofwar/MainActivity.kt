@@ -47,9 +47,14 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         // checkLocationServicesAndRequestPermissions()
     }
+
+    override fun onStart() {
+        super.onStart()
+        checkLocationServicesAndRequestPermissions()// 앱 실행 시 위치 서비스 확인
+    }
     override fun onResume() {
         super.onResume()
-        checkLocationServicesAndRequestPermissions()// 앱 실행 시 위치 서비스 확인
+        // checkLocationServicesAndRequestPermissions()// 앱 실행 시 위치 서비스 확인
     }
 
     /**앱을 켤때 마다 위치 기능 활성화 요청*/
