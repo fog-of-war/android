@@ -7,12 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.icu.text.SimpleDateFormat
 import android.location.Criteria
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -29,6 +32,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.provider.Settings
+import androidx.core.content.FileProvider
+import java.io.File
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val GALLERY_REQUEST_CODE = 1002
         private const val LOCATION_SETTINGS_REQUEST_CODE = 1003
+        private const val FILE_CHOOSER_REQUEST_CODE = 1
     }
     private var mFilePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -58,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**앱을 켤때 마다 위치 기능 활성화 요청*/
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.DONUT)
     private fun checkLocationServicesAndRequestPermissions() {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
@@ -101,9 +110,35 @@ class MainActivity : AppCompatActivity() {
         // WebChromeClient 설정 부분
         mWebView.webChromeClient = object : WebChromeClient() {
             // For Lollipop 5.0+ Devices
-            override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
-                // 파일 선택 인텐트를 시작합니다
-                fetchImageFromGallery(filePathCallback)
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                mFilePathCallback = filePathCallback
+
+                // 갤러리에서 이미지를 선택하기 위한 인텐트
+                val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+
+                // 카메라로 사진을 찍기 위한 인텐트
+                val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+
+                // 카메라 인텐트에 대한 파일 URI 생성
+                val photoFile: File? = createImageFile() // createImageFile() 메소드 구현 필요
+                if (photoFile != null) {
+                    val photoURI = FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "com.fow.fogofwar.fileprovider", // 여기에 파일 프로바이더의 권한을 넣으세요
+                        photoFile
+                    )
+                    cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+                }
+
+                // 인텐트 선택기로 카메라와 갤러리 중 선택
+                val chooserIntent = Intent.createChooser(galleryIntent, "Select Source")
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+
+                startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE)
                 return true
             }
 
@@ -162,6 +197,18 @@ class MainActivity : AppCompatActivity() {
             }
             mFilePathCallback = null
         }
+    }
+
+    /** 카메라 인텐트를 위한 임시 파일을 생성하는 메소드*/
+    private fun createImageFile(): File {
+        // 이미지 파일 이름 생성
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir: File = getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
+        return File.createTempFile(
+            "JPEG_${timeStamp}_", /* prefix */
+            ".jpg", /* suffix */
+            storageDir /* directory */
+        )
     }
 
     /**권한 요청*/
