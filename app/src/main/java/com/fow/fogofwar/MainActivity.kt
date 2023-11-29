@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         private const val FILE_CHOOSER_REQUEST_CODE = 1
     }
     private var mFilePathCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraPhotoFile: File? = null // 카메라로 찍은 사진 파일
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -188,27 +189,35 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == GALLERY_REQUEST_CODE) {
-            if (resultCode == Activity.RESULT_OK && data != null && data.data != null) {
-                val results = arrayOf(data.data!!)
-                mFilePathCallback?.onReceiveValue(results)
-            } else {
+        if (requestCode == GALLERY_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { uri ->
+                mFilePathCallback?.onReceiveValue(arrayOf(uri))
+            } ?: run {
                 mFilePathCallback?.onReceiveValue(null)
             }
-            mFilePathCallback = null
+        } else if (requestCode == FILE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+            cameraPhotoFile?.let { file ->
+                val uri = Uri.fromFile(file)
+                mFilePathCallback?.onReceiveValue(arrayOf(uri))
+            } ?: run {
+                mFilePathCallback?.onReceiveValue(null)
+            }
         }
+
+        mFilePathCallback = null
     }
 
     /** 카메라 인텐트를 위한 임시 파일을 생성하는 메소드*/
     private fun createImageFile(): File {
-        // 이미지 파일 이름 생성
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val storageDir: File = getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
         return File.createTempFile(
             "JPEG_${timeStamp}_", /* prefix */
             ".jpg", /* suffix */
             storageDir /* directory */
-        )
+        ).also {
+            cameraPhotoFile = it // 카메라로 찍은 사진 파일 저장
+        }
     }
 
     /**권한 요청*/
