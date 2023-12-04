@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.fow.fogofwar"
-        minSdk = 33
+        minSdk = 21
         targetSdk = 33
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
